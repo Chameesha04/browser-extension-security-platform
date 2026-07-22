@@ -1,0 +1,23 @@
+﻿# Python virtual environments
+venv/
+.venv/
+
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Secret environment variables and API keys
+.env
+
+# Generated scanner logs
+logs/*.json
+logs/*.jsonl
+
+# Testing files
+.pytest_cache/
+
+# IDE files
+.idea/
+.vscode/
