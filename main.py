@@ -7,8 +7,6 @@ from endpoint_scanner.scanner import EndpointScanner
 def display_extensions(
     extensions: list[Extension],
 ) -> None:
-    """Display a readable summary of discovered Chrome extensions."""
-
     installations = len(extensions)
 
     unique_extensions = len(
@@ -52,8 +50,6 @@ def display_extensions(
 
 
 def main() -> None:
-    """Run the Chrome extension scanning workflow."""
-
     print("Starting Chrome extension scan...")
 
     scanner = EndpointScanner()
@@ -63,21 +59,16 @@ def main() -> None:
 
     event_writer = JsonLinesEventWriter()
 
-    # Compare against the previous snapshot before replacing it.
+    # Compare with the previous readable snapshot before replacing it.
     comparator = InventoryComparator(
         event_writer.snapshot_path
     )
 
     changes = comparator.compare(extensions)
 
-    # Write installed, updated and removed events first.
-    change_event_count = event_writer.write_change_events(
-        changes
-    )
-
-    # Write full inventory events and replace the latest snapshot.
-    inventory_event_count = event_writer.write_scan(
-        extensions
+    result = event_writer.write_scan(
+        extensions=extensions,
+        changes=changes,
     )
 
     print("\n===== Inventory Changes =====")
@@ -85,16 +76,22 @@ def main() -> None:
     print(f"Updated   : {len(changes['updated'])}")
     print(f"Removed   : {len(changes['removed'])}")
 
+    print("\n===== Wazuh Event Output =====")
     print(
-        f"\n{inventory_event_count} inventory events written."
+        f"Inventory events : "
+        f"{result['inventory_events']}"
+    )
+    print(
+        f"Change events    : "
+        f"{result['change_events']}"
+    )
+    print(
+        f"Total events     : "
+        f"{result['total_events']}"
     )
 
-    print(
-        f"{change_event_count} change events written."
-    )
-
-    print("\nWazuh JSONL file:")
-    print(event_writer.output_path.resolve())
+    print("\nCompleted Wazuh spool file:")
+    print(result["spool_file"].resolve())
 
     print("\nLatest readable inventory:")
     print(event_writer.snapshot_path.resolve())

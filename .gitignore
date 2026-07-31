@@ -21,3 +21,5 @@ logs/*.jsonl
 # IDE files
 .idea/
 .vscode/
+
+logs/wazuh_spool/
