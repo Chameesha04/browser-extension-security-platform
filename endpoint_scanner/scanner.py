@@ -63,3 +63,4 @@ class EndpointScanner:
         extension.icons = metadata["icons"]
         extension.homepage_url = metadata["homepage_url"]
         extension.update_url = metadata["update_url"]
+

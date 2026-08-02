@@ -52,22 +52,23 @@ class JsonLinesEventWriter:
         hostname: str,
     ) -> dict[str, Any]:
         return {
-            **self._base_event(
-                scan_id=scan_id,
-                timestamp=timestamp,
-                hostname=hostname,
-            ),
-            "event_type": "extension_inventory",
-            "profile": extension.profile,
-            "extension_id": extension.extension_id,
-            "extension_name": extension.name,
-            "extension_version": extension.version,
-            "manifest_version": extension.manifest_version,
-            "permissions": extension.permissions,
-            "host_permissions": extension.host_permissions,
-            "risk_score": extension.risk_score,
-            "severity": extension.severity,
-        }
+        **self._base_event(
+            scan_id=scan_id,
+            timestamp=timestamp,
+            hostname=hostname,
+        ),
+        "event_type": "extension_inventory",
+        "profile": extension.profile,
+        "extension_id": extension.extension_id,
+        "extension_name": extension.name,
+        "extension_version": extension.version,
+        "manifest_version": extension.manifest_version,
+        "permissions": extension.permissions,
+        "host_permissions": extension.host_permissions,
+        "risk_score": extension.risk_score,
+        "severity": extension.severity,
+        "findings": extension.findings,
+                }
 
     def _create_change_events(
         self,

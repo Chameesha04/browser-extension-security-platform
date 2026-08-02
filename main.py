@@ -2,6 +2,10 @@ from endpoint_scanner.event_writer import JsonLinesEventWriter
 from endpoint_scanner.inventory_comparator import InventoryComparator
 from endpoint_scanner.models import Extension
 from endpoint_scanner.scanner import EndpointScanner
+from endpoint_scanner.risk_scorer import (
+    score_extensions,
+    score_results,
+)  
 
 
 def display_extensions(
@@ -46,6 +50,21 @@ def display_extensions(
             f"Host Permissions    : "
             f"{len(extension.host_permissions)}"
         )
+        print(f"Risk Score          : {extension.risk_score}")
+        print(f"Severity            : {extension.severity}")
+
+        if extension.findings:
+            print("Findings            :")
+            for finding in extension.findings:
+                print(
+                    f"  - [{finding['category']}] "
+                    f"{finding['item']} "
+                    f"(+{finding['score']}): "
+                    f"{finding['reason']}"
+            )
+        else:
+            print("Findings            : None")
+
         print("=" * 60)
 
 
@@ -54,6 +73,9 @@ def main() -> None:
 
     scanner = EndpointScanner()
     extensions = scanner.scan()
+
+    # Add risk scores to Extension objects
+    score_extensions(extensions)
 
     display_extensions(extensions)
 
@@ -95,6 +117,9 @@ def main() -> None:
 
     print("\nLatest readable inventory:")
     print(event_writer.snapshot_path.resolve())
+    score_results()
+    import json
+
 
 
 if __name__ == "__main__":
