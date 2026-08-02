@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 import socket
 from datetime import datetime, timezone
@@ -10,12 +12,18 @@ from endpoint_scanner.models import Extension
 
 class JsonLinesEventWriter:
     """
-    Write each completed scan to a separate JSONL spool file.
+    Build Chrome extension security events and maintain the latest
+    readable inventory snapshot.
 
-    A temporary file is used while writing. It is renamed to .jsonl
-    only after all events have been written successfully. This prevents
-    Wazuh from reading an incomplete scan file.
+    JSONL spool files are now used only as a fallback when Syslog
+    delivery fails.
     """
+
+    CHANGE_EVENT_TYPES = {
+        "installed": "extension_installed",
+        "updated": "extension_updated",
+        "removed": "extension_removed",
+    }
 
     def __init__(
         self,
@@ -78,24 +86,108 @@ class JsonLinesEventWriter:
     ) -> list[dict[str, Any]]:
         events: list[dict[str, Any]] = []
 
-        for change_type in (
-            "installed",
-            "updated",
-            "removed",
+        for change_type, event_type in (
+            self.CHANGE_EVENT_TYPES.items()
         ):
             for change in changes.get(change_type, []):
-                events.append(
-                    {
-                        **self._base_event(
-                            scan_id=scan_id,
-                            timestamp=timestamp,
-                            hostname=hostname,
-                        ),
-                        **change,
-                    }
-                )
+                event = {
+                    **self._base_event(
+                        scan_id=scan_id,
+                        timestamp=timestamp,
+                        hostname=hostname,
+                    ),
+                    **change,
+                }
+
+                # Protect against comparator output that does not
+                # explicitly contain an event_type field.
+                event.setdefault("event_type", event_type)
+
+                events.append(event)
 
         return events
+
+    def prepare_scan(
+        self,
+        extensions: list[Extension],
+        changes: dict[str, list[dict[str, Any]]],
+    ) -> dict[str, Any]:
+        """
+        Create all inventory and change events without sending or
+        writing them yet.
+        """
+
+        scan_id = str(uuid4())
+
+        timestamp = datetime.now(
+            timezone.utc
+        ).isoformat()
+
+        hostname = socket.gethostname()
+
+        change_events = self._create_change_events(
+            changes=changes,
+            scan_id=scan_id,
+            timestamp=timestamp,
+            hostname=hostname,
+        )
+
+        inventory_events = [
+            self._create_inventory_event(
+                extension=extension,
+                scan_id=scan_id,
+                timestamp=timestamp,
+                hostname=hostname,
+            )
+            for extension in extensions
+        ]
+
+        all_events = change_events + inventory_events
+
+        return {
+            "scan_id": scan_id,
+            "timestamp": timestamp,
+            "hostname": hostname,
+            "inventory_event_records": inventory_events,
+            "change_event_records": change_events,
+            "events": all_events,
+            "inventory_events": len(inventory_events),
+            "change_events": len(change_events),
+            "total_events": len(all_events),
+        }
+
+    def commit_snapshot(
+        self,
+        extensions: list[Extension],
+        scan_result: dict[str, Any],
+    ) -> None:
+        """
+        Save the latest inventory after successful Syslog delivery.
+        """
+
+        self._write_snapshot(
+            extensions=extensions,
+            inventory_events=scan_result[
+                "inventory_event_records"
+            ],
+            scan_id=scan_result["scan_id"],
+            timestamp=scan_result["timestamp"],
+            hostname=scan_result["hostname"],
+        )
+
+    def write_fallback_spool(
+        self,
+        scan_result: dict[str, Any],
+    ) -> Path:
+        """
+        Save undelivered events locally when Syslog is unavailable.
+        """
+
+        return self._write_spool_file(
+            events=scan_result["events"],
+            scan_id=scan_result["scan_id"],
+            timestamp=scan_result["timestamp"],
+        )
 
     def _write_spool_file(
         self,
@@ -135,11 +227,11 @@ class JsonLinesEventWriter:
                         event,
                         ensure_ascii=False,
                         separators=(",", ":"),
+                        default=str,
                     )
 
                     log_file.write(json_line + "\n")
 
-            # Rename only after writing and closing the complete file.
             temporary_path.replace(final_path)
 
         except Exception:
@@ -200,6 +292,7 @@ class JsonLinesEventWriter:
                     snapshot_file,
                     indent=4,
                     ensure_ascii=False,
+                    default=str,
                 )
 
             temporary_snapshot.replace(
@@ -211,62 +304,3 @@ class JsonLinesEventWriter:
                 temporary_snapshot.unlink()
 
             raise
-
-    def write_scan(
-        self,
-        extensions: list[Extension],
-        changes: dict[str, list[dict[str, Any]]],
-    ) -> dict[str, Any]:
-        """
-        Write inventory and change events into one completed spool file.
-
-        The latest readable inventory snapshot is also updated.
-        """
-
-        scan_id = str(uuid4())
-        timestamp = datetime.now(
-            timezone.utc
-        ).isoformat()
-
-        hostname = socket.gethostname()
-
-        change_events = self._create_change_events(
-            changes=changes,
-            scan_id=scan_id,
-            timestamp=timestamp,
-            hostname=hostname,
-        )
-
-        inventory_events = [
-            self._create_inventory_event(
-                extension=extension,
-                scan_id=scan_id,
-                timestamp=timestamp,
-                hostname=hostname,
-            )
-            for extension in extensions
-        ]
-
-        all_events = change_events + inventory_events
-
-        spool_file = self._write_spool_file(
-            events=all_events,
-            scan_id=scan_id,
-            timestamp=timestamp,
-        )
-
-        self._write_snapshot(
-            extensions=extensions,
-            inventory_events=inventory_events,
-            scan_id=scan_id,
-            timestamp=timestamp,
-            hostname=hostname,
-        )
-
-        return {
-            "scan_id": scan_id,
-            "spool_file": spool_file,
-            "inventory_events": len(inventory_events),
-            "change_events": len(change_events),
-            "total_events": len(all_events),
-        }
