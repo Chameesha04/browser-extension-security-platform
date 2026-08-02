@@ -117,9 +117,6 @@ def main() -> None:
 
     print("\nLatest readable inventory:")
     print(event_writer.snapshot_path.resolve())
-    score_results()
-    import json
-
 
 
 if __name__ == "__main__":
