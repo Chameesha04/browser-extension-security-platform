@@ -8,6 +8,7 @@ from typing import Any
 from uuid import uuid4
 
 from endpoint_scanner.models import Extension
+from endpoint_scanner.permission_risk_score import RISK_MODEL_VERSION
 
 
 class JsonLinesEventWriter:
@@ -53,29 +54,41 @@ class JsonLinesEventWriter:
         }
 
     def _create_inventory_event(
-        self,
-        extension: Extension,
-        scan_id: str,
-        timestamp: str,
-        hostname: str,
-    ) -> dict[str, Any]:
+    self,
+    extension: Extension,
+    scan_id: str,
+    timestamp: str,
+    hostname: str,
+) -> dict[str, Any]:
+        findings = extension.findings or []
+
         return {
-            **self._base_event(
-                scan_id=scan_id,
-                timestamp=timestamp,
-                hostname=hostname,
-            ),
-            "event_type": "extension_inventory",
-            "profile": extension.profile,
-            "extension_id": extension.extension_id,
-            "extension_name": extension.name,
-            "extension_version": extension.version,
-            "manifest_version": extension.manifest_version,
-            "permissions": extension.permissions,
-            "host_permissions": extension.host_permissions,
-            "risk_score": extension.risk_score,
-            "severity": extension.severity,
-        }
+        **self._base_event(
+            scan_id=scan_id,
+            timestamp=timestamp,
+            hostname=hostname,
+        ),
+        "event_type": "extension_inventory",
+        "profile": extension.profile,
+        "extension_id": extension.extension_id,
+        "extension_name": extension.name,
+        "extension_version": extension.version,
+        "manifest_version": extension.manifest_version,
+        "permissions": extension.permissions,
+        "host_permissions": extension.host_permissions,
+
+        # Permission-based risk assessment
+        "permission_risk_score": extension.risk_score,
+        "severity": extension.severity,
+        "risk_model_version": RISK_MODEL_VERSION,
+        "finding_count": len(findings),
+        "top_finding": (
+            findings[0].get("reason", "")
+            if findings
+            else ""
+        ),
+        "findings": findings,
+    }
 
     def _create_change_events(
         self,
