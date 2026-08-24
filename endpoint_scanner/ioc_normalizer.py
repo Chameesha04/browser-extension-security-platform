@@ -203,6 +203,30 @@ class IOCNormalizer:
             if not url:
                 continue
 
+            # Reject escaped/template-style URLs such as
+            # http://\u0442\u0435\u0441\u0442.
+            # These are code strings, not reliable network IOCs.
+            if "\\" in url:
+                excluded.append(
+                {
+                "value": url,
+                "reason": "escaped_or_invalid_url",
+                }
+             )
+                continue
+
+            # Chrome host/match patterns such as
+            # http://*/* are permissions, not real URLs.
+            if "*" in url:
+                excluded.append(
+                    {
+                        "value": url,
+                        "reason": "wildcard_match_pattern",
+                    }
+                )
+                continue
+
+            # Reject template or placeholder URLs.
             if self._contains_template_marker(url):
                 excluded.append(
                     {
@@ -214,7 +238,6 @@ class IOCNormalizer:
 
             try:
                 parsed = urlparse(url)
-
                 hostname = parsed.hostname
 
             except ValueError:
@@ -226,6 +249,8 @@ class IOCNormalizer:
                 )
                 continue
 
+            # Only HTTP/HTTPS URLs are useful for our
+            # current VirusTotal enrichment.
             if parsed.scheme.lower() not in {
                 "http",
                 "https",
@@ -249,6 +274,7 @@ class IOCNormalizer:
 
             hostname = hostname.lower()
 
+            # Exclude local-only destinations.
             if (
                 hostname == "localhost"
                 or hostname.endswith(".localhost")
@@ -262,6 +288,9 @@ class IOCNormalizer:
                 )
                 continue
 
+            # If the hostname itself is an IP address,
+            # do not use non-public addresses for
+            # threat-intelligence URL queries.
             try:
                 address = ipaddress.ip_address(
                     hostname
@@ -277,13 +306,13 @@ class IOCNormalizer:
                 excluded.append(
                     {
                         "value": url,
-                        "reason": (
-                            "non_public_ip_destination"
-                        ),
+                        "reason": "non_public_ip_destination",
                     }
                 )
                 continue
 
+            # Normalize scheme/host case and remove URL
+            # fragments while keeping the path/query.
             normalized = urlunparse(
                 (
                     parsed.scheme.lower(),
@@ -291,7 +320,7 @@ class IOCNormalizer:
                     parsed.path,
                     parsed.params,
                     parsed.query,
-                    "",  # Remove fragment.
+                    "",
                 )
             )
 

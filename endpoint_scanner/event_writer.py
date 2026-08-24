@@ -16,7 +16,7 @@ class JsonLinesEventWriter:
     Build Chrome extension security events and maintain the latest
     readable inventory snapshot.
 
-    JSONL spool files are now used only as a fallback when Syslog
+    JSONL spool files are used only as a fallback when Syslog
     delivery fails.
     """
 
@@ -53,56 +53,293 @@ class JsonLinesEventWriter:
             "browser": "Chrome",
         }
 
+    @staticmethod
+    def _analysis_key(
+        extension: Extension,
+    ) -> str:
+        return (
+            f"{extension.extension_id}:"
+            f"{extension.version}"
+        )
+
     def _create_inventory_event(
-    self,
-    extension: Extension,
-    scan_id: str,
-    timestamp: str,
-    hostname: str,
-) -> dict[str, Any]:
-        findings = extension.findings or []
+        self,
+        extension: Extension,
+        scan_id: str,
+        timestamp: str,
+        hostname: str,
+        analysis_result: (
+            dict[str, Any] | None
+        ) = None,
+    ) -> dict[str, Any]:
+        findings = (
+            extension.findings
+            or []
+        )
 
-        return {
-        **self._base_event(
-            scan_id=scan_id,
-            timestamp=timestamp,
-            hostname=hostname,
-        ),
-        "event_type": "extension_inventory",
-        "profile": extension.profile,
-        "extension_id": extension.extension_id,
-        "extension_name": extension.name,
-        "extension_version": extension.version,
-        "manifest_version": extension.manifest_version,
-        "permissions": extension.permissions,
-        "host_permissions": extension.host_permissions,
+        analysis_result = (
+            analysis_result
+            if isinstance(
+                analysis_result,
+                dict,
+            )
+            else {}
+        )
 
-        # Permission-based risk assessment
-        "permission_risk_score": extension.risk_score,
-        "severity": extension.severity,
-        "risk_model_version": RISK_MODEL_VERSION,
-        "finding_count": len(findings),
-        "top_finding": (
-            findings[0].get("reason", "")
-            if findings
-            else ""
-        ),
-        "findings": findings,
-    }
+        analysis_status = str(
+            analysis_result.get(
+                "analysis_status",
+                "not_available",
+            )
+        )
+
+        assessment = (
+            analysis_result.get(
+                "assessment",
+                {},
+            )
+        )
+
+        if not isinstance(
+            assessment,
+            dict,
+        ):
+            assessment = {}
+
+        permission_analysis = (
+            assessment.get(
+                "permission_analysis",
+                {},
+            )
+        )
+
+        threat_intel_analysis = (
+            assessment.get(
+                "threat_intelligence_analysis",
+                {},
+            )
+        )
+
+        static_code_analysis = (
+            assessment.get(
+                "static_code_analysis",
+                {},
+            )
+        )
+
+        final_assessment = (
+            assessment.get(
+                "final_assessment",
+                {},
+            )
+        )
+
+        if not isinstance(
+            permission_analysis,
+            dict,
+        ):
+            permission_analysis = {}
+
+        if not isinstance(
+            threat_intel_analysis,
+            dict,
+        ):
+            threat_intel_analysis = {}
+
+        if not isinstance(
+            static_code_analysis,
+            dict,
+        ):
+            static_code_analysis = {}
+
+        if not isinstance(
+            final_assessment,
+            dict,
+        ):
+            final_assessment = {}
+
+        final_severity = str(
+            final_assessment.get(
+                "final_severity",
+                "",
+            )
+        ).strip()
+
+        effective_severity = (
+            final_severity
+            if (
+                analysis_status
+                == "complete"
+                and final_severity
+            )
+            else str(
+                extension.severity
+            )
+        )
+
+        event = {
+            **self._base_event(
+                scan_id=scan_id,
+                timestamp=timestamp,
+                hostname=hostname,
+            ),
+            "event_type": (
+                "extension_inventory"
+            ),
+            "profile": extension.profile,
+            "extension_id": (
+                extension.extension_id
+            ),
+            "extension_name": (
+                extension.name
+            ),
+            "extension_version": (
+                extension.version
+            ),
+            "manifest_version": (
+                extension.manifest_version
+            ),
+            "permissions": (
+                extension.permissions
+            ),
+            "host_permissions": (
+                extension.host_permissions
+            ),
+
+            # Permission-only assessment
+            "permission_risk_score": (
+                extension.risk_score
+            ),
+            "permission_severity": (
+                extension.severity
+            ),
+            "permission_risk_model_version": (
+                RISK_MODEL_VERSION
+            ),
+            "finding_count": len(
+                findings
+            ),
+            "top_finding": (
+                findings[0].get(
+                    "reason",
+                    "",
+                )
+                if findings
+                else ""
+            ),
+            "findings": findings,
+
+            # Multi-factor pipeline status
+            "analysis_status": (
+                analysis_status
+            ),
+            "analysis_error": (
+                analysis_result.get(
+                    "analysis_error",
+                    "",
+                )
+            ),
+
+            # Core flattened fields for Wazuh
+            "threat_intel_score": (
+                threat_intel_analysis.get(
+                    "score"
+                )
+            ),
+            "threat_intel_severity": (
+                threat_intel_analysis.get(
+                    "severity",
+                    "",
+                )
+            ),
+            "static_code_score": (
+                static_code_analysis.get(
+                    "score"
+                )
+            ),
+            "static_code_severity": (
+                static_code_analysis.get(
+                    "severity",
+                    "",
+                )
+            ),
+            "final_risk_score": (
+                final_assessment.get(
+                    "final_score"
+                )
+            ),
+            "final_severity": (
+                final_severity
+            ),
+            "final_recommendation": (
+                final_assessment.get(
+                    "recommendation",
+                    "",
+                )
+            ),
+            "analyzer_model_version": (
+                assessment.get(
+                    "analyzer_model_version",
+                    "",
+                )
+            ),
+
+            # Keep useful details nested too.
+            "permission_analysis": (
+                permission_analysis
+            ),
+            "threat_intelligence_analysis": (
+                threat_intel_analysis
+            ),
+            "static_code_analysis": (
+                static_code_analysis
+            ),
+            "final_assessment": (
+                final_assessment
+            ),
+            "ioc_summary": (
+                analysis_result.get(
+                    "ioc_summary",
+                    {},
+                )
+            ),
+            "threat_intel_summary": (
+                analysis_result.get(
+                    "threat_intel_summary",
+                    {},
+                )
+            ),
+
+            # Existing Wazuh severity rules can
+            # keep using this field.
+            "severity": (
+                effective_severity
+            ),
+        }
+
+        return event
 
     def _create_change_events(
         self,
-        changes: dict[str, list[dict[str, Any]]],
+        changes: dict[
+            str,
+            list[dict[str, Any]],
+        ],
         scan_id: str,
         timestamp: str,
         hostname: str,
     ) -> list[dict[str, Any]]:
-        events: list[dict[str, Any]] = []
+        events: list[
+            dict[str, Any]
+        ] = []
 
         for change_type, event_type in (
             self.CHANGE_EVENT_TYPES.items()
         ):
-            for change in changes.get(change_type, []):
+            for change in changes.get(
+                change_type,
+                [],
+            ):
                 event = {
                     **self._base_event(
                         scan_id=scan_id,
@@ -112,25 +349,40 @@ class JsonLinesEventWriter:
                     **change,
                 }
 
-                # Protect against comparator output that does not
-                # explicitly contain an event_type field.
-                event.setdefault("event_type", event_type)
+                event.setdefault(
+                    "event_type",
+                    event_type,
+                )
 
-                events.append(event)
+                events.append(
+                    event
+                )
 
         return events
 
     def prepare_scan(
         self,
         extensions: list[Extension],
-        changes: dict[str, list[dict[str, Any]]],
+        changes: dict[
+            str,
+            list[dict[str, Any]],
+        ],
+        analysis_results: (
+            dict[
+                str,
+                dict[str, Any],
+            ]
+            | None
+        ) = None,
     ) -> dict[str, Any]:
         """
-        Create all inventory and change events without sending or
-        writing them yet.
+        Create all inventory and change events without
+        sending or writing them yet.
         """
 
-        scan_id = str(uuid4())
+        scan_id = str(
+            uuid4()
+        )
 
         timestamp = datetime.now(
             timezone.utc
@@ -138,11 +390,18 @@ class JsonLinesEventWriter:
 
         hostname = socket.gethostname()
 
-        change_events = self._create_change_events(
-            changes=changes,
-            scan_id=scan_id,
-            timestamp=timestamp,
-            hostname=hostname,
+        analysis_results = (
+            analysis_results
+            or {}
+        )
+
+        change_events = (
+            self._create_change_events(
+                changes=changes,
+                scan_id=scan_id,
+                timestamp=timestamp,
+                hostname=hostname,
+            )
         )
 
         inventory_events = [
@@ -151,31 +410,55 @@ class JsonLinesEventWriter:
                 scan_id=scan_id,
                 timestamp=timestamp,
                 hostname=hostname,
+                analysis_result=(
+                    analysis_results.get(
+                        self._analysis_key(
+                            extension
+                        )
+                    )
+                ),
             )
             for extension in extensions
         ]
 
-        all_events = change_events + inventory_events
+        all_events = (
+            change_events
+            + inventory_events
+        )
 
         return {
             "scan_id": scan_id,
             "timestamp": timestamp,
             "hostname": hostname,
-            "inventory_event_records": inventory_events,
-            "change_event_records": change_events,
+            "inventory_event_records": (
+                inventory_events
+            ),
+            "change_event_records": (
+                change_events
+            ),
             "events": all_events,
-            "inventory_events": len(inventory_events),
-            "change_events": len(change_events),
-            "total_events": len(all_events),
+            "inventory_events": len(
+                inventory_events
+            ),
+            "change_events": len(
+                change_events
+            ),
+            "total_events": len(
+                all_events
+            ),
         }
 
     def commit_snapshot(
         self,
         extensions: list[Extension],
-        scan_result: dict[str, Any],
+        scan_result: dict[
+            str,
+            Any,
+        ],
     ) -> None:
         """
-        Save the latest inventory after successful Syslog delivery.
+        Save the latest inventory after successful
+        Syslog delivery.
         """
 
         self._write_snapshot(
@@ -183,28 +466,46 @@ class JsonLinesEventWriter:
             inventory_events=scan_result[
                 "inventory_event_records"
             ],
-            scan_id=scan_result["scan_id"],
-            timestamp=scan_result["timestamp"],
-            hostname=scan_result["hostname"],
+            scan_id=scan_result[
+                "scan_id"
+            ],
+            timestamp=scan_result[
+                "timestamp"
+            ],
+            hostname=scan_result[
+                "hostname"
+            ],
         )
 
     def write_fallback_spool(
         self,
-        scan_result: dict[str, Any],
+        scan_result: dict[
+            str,
+            Any,
+        ],
     ) -> Path:
         """
-        Save undelivered events locally when Syslog is unavailable.
+        Save undelivered events locally when Syslog
+        is unavailable.
         """
 
         return self._write_spool_file(
-            events=scan_result["events"],
-            scan_id=scan_result["scan_id"],
-            timestamp=scan_result["timestamp"],
+            events=scan_result[
+                "events"
+            ],
+            scan_id=scan_result[
+                "scan_id"
+            ],
+            timestamp=scan_result[
+                "timestamp"
+            ],
         )
 
     def _write_spool_file(
         self,
-        events: list[dict[str, Any]],
+        events: list[
+            dict[str, Any]
+        ],
         scan_id: str,
         timestamp: str,
     ) -> Path:
@@ -217,16 +518,27 @@ class JsonLinesEventWriter:
             timestamp
             .replace("-", "")
             .replace(":", "")
-            .replace("+00:00", "Z")
+            .replace(
+                "+00:00",
+                "Z",
+            )
             .replace(".", "_")
         )
 
-        final_path = self.spool_directory / (
-            f"scan_{filename_timestamp}_{scan_id[:8]}.jsonl"
+        final_path = (
+            self.spool_directory
+            / (
+                "scan_"
+                f"{filename_timestamp}_"
+                f"{scan_id[:8]}.jsonl"
+            )
         )
 
-        temporary_path = self.spool_directory / (
-            f".scan_{scan_id}.tmp"
+        temporary_path = (
+            self.spool_directory
+            / (
+                f".scan_{scan_id}.tmp"
+            )
         )
 
         try:
@@ -239,13 +551,21 @@ class JsonLinesEventWriter:
                     json_line = json.dumps(
                         event,
                         ensure_ascii=False,
-                        separators=(",", ":"),
+                        separators=(
+                            ",",
+                            ":",
+                        ),
                         default=str,
                     )
 
-                    log_file.write(json_line + "\n")
+                    log_file.write(
+                        json_line
+                        + "\n"
+                    )
 
-            temporary_path.replace(final_path)
+            temporary_path.replace(
+                final_path
+            )
 
         except Exception:
             if temporary_path.exists():
@@ -258,7 +578,9 @@ class JsonLinesEventWriter:
     def _write_snapshot(
         self,
         extensions: list[Extension],
-        inventory_events: list[dict[str, Any]],
+        inventory_events: list[
+            dict[str, Any]
+        ],
         scan_id: str,
         timestamp: str,
         hostname: str,
@@ -284,15 +606,25 @@ class JsonLinesEventWriter:
             "hostname": hostname,
             "browser": "Chrome",
             "summary": {
-                "profiles_scanned": len(profiles),
-                "extension_installations": len(extensions),
-                "unique_extension_ids": len(unique_ids),
+                "profiles_scanned": len(
+                    profiles
+                ),
+                "extension_installations": len(
+                    extensions
+                ),
+                "unique_extension_ids": len(
+                    unique_ids
+                ),
             },
-            "extensions": inventory_events,
+            "extensions": (
+                inventory_events
+            ),
         }
 
-        temporary_snapshot = self.snapshot_path.with_suffix(
-            ".json.tmp"
+        temporary_snapshot = (
+            self.snapshot_path.with_suffix(
+                ".json.tmp"
+            )
         )
 
         try:
