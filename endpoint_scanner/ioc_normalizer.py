@@ -187,7 +187,7 @@ class IOCNormalizer:
             },
         }
 
-    def _normalize_urls(
+    def _normalize_urls(  
         self,
         urls: list[str],
     ) -> dict[str, Any]:

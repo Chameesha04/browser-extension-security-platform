@@ -23,3 +23,7 @@ logs/*.jsonl
 .vscode/
 
 logs/wazuh_spool/
+git rm --cached logs/threat_intel_cache/virustotal.json
+logs/threat_intel_cache/virustotal.json
+logs/threat_intel_cache/virustotal.before-demo-*.json
+logs/safe_video_bookmark_demo_event.json

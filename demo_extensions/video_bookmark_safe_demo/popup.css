@@ -1,0 +1,133 @@
+:root {
+  color-scheme: light;
+  font-family: Inter, Arial, sans-serif;
+  color: #152033;
+  background: #f5f8fc;
+}
+
+body {
+  width: 360px;
+  margin: 0;
+}
+
+main {
+  padding: 20px;
+}
+
+.eyebrow {
+  color: #2677e8;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+h1 {
+  margin: 5px 0 8px;
+  font-size: 25px;
+}
+
+h2 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.current-page,
+.empty-state {
+  color: #627087;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+label {
+  display: block;
+  margin: 18px 0 6px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 10px 11px;
+  border: 1px solid #c7d2e2;
+  border-radius: 8px;
+  background: white;
+}
+
+button {
+  cursor: pointer;
+}
+
+#saveBookmark {
+  width: 100%;
+  margin-top: 10px;
+  padding: 10px;
+  border: 0;
+  border-radius: 8px;
+  color: white;
+  background: #2677e8;
+  font-weight: 700;
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 22px;
+}
+
+.text-button {
+  border: 0;
+  color: #2677e8;
+  background: transparent;
+  font-size: 12px;
+}
+
+ul {
+  padding: 0;
+  list-style: none;
+}
+
+li {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 10px;
+  border: 1px solid #d8e1ed;
+  border-radius: 8px;
+  background: white;
+}
+
+.bookmark-link {
+  overflow: hidden;
+  border: 0;
+  color: #152033;
+  background: transparent;
+  text-align: left;
+}
+
+.bookmark-title,
+.bookmark-note {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bookmark-title {
+  font-weight: 700;
+}
+
+.bookmark-note {
+  margin-top: 3px;
+  color: #627087;
+  font-size: 12px;
+}
+
+.delete-button {
+  border: 0;
+  color: #a22929;
+  background: transparent;
+  font-size: 16px;
+}

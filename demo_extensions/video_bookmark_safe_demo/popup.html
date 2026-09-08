@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Video Bookmark</title>
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <main>
+      <div class="eyebrow">SAFE SECURITY DEMO</div>
+      <h1>Video Bookmark</h1>
+      <p id="currentPage" class="current-page">Reading the current tab…</p>
+
+      <label for="bookmarkNote">Timestamp or note</label>
+      <input id="bookmarkNote" maxlength="80" placeholder="Example: 03:24 — key explanation">
+      <button id="saveBookmark" type="button">Save current video</button>
+
+      <div class="section-title">
+        <h2>Saved bookmarks</h2>
+        <button id="clearBookmarks" class="text-button" type="button">Clear</button>
+      </div>
+      <ul id="bookmarkList"></ul>
+      <p id="emptyState" class="empty-state">No video bookmarks saved yet.</p>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>
